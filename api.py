@@ -1,19 +1,26 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 import joblib
 
-# Carregar modelo e vetorizador
 modelo = joblib.load("modelo_sentimentos.pkl")
 vetorizador = joblib.load("vetorizador_tfidf.pkl")
 
+class Entrada(BaseModel):
+    texto: str
+
 app = FastAPI()
 
-@app.get("/")
-def home():
-    return {"mensagem": "API de Análise de Sentimentos IMDB está rodando!"}
-
 @app.post("/prever/")
-def prever_sentimento(texto: str):
-    X = vetorizador.transform([texto])
+def prever_sentimento(dados: Entrada):
+    X = vetorizador.transform([dados.texto])
     pred = modelo.predict(X)[0]
-    return {"sentimento": pred}
+    proba = modelo.predict_proba(X)[0]
 
+    return {
+        "sentimento": int(pred),
+        "probabilidade": float(max(proba)),  # maior probabilidade (positivo ou negativo)
+        "detalhes": {
+            "negativo": float(proba[0]),
+            "positivo": float(proba[1])
+        }
+    }
